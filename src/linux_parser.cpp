@@ -134,7 +134,10 @@ long LinuxParser::ActiveJiffies(int pid) {
   std::ifstream filestream(kProcDirectory + to_string(pid) +
                            kStatFilename);  // /proc/[pid]/stat
   string line;
-  long utime, stime, cutime, cstime, starttime;
+  long utime = 0;
+  long stime = 0;
+  long cutime = 0;
+  long cstime = 0;
 
   std::size_t s_pos, n_pos, len_;
   if (filestream.is_open()) {
@@ -144,11 +147,17 @@ long LinuxParser::ActiveJiffies(int pid) {
       s_pos = n_pos + 1;
       n_pos = line.find(" ", s_pos);
       len_ = n_pos - s_pos;
-      if (i == 13) utime = std::stol(line.substr(s_pos, len_));   // time spent in user code
-      if (i == 14) stime = std::stol(line.substr(s_pos, len_));   // time spent in kernel code
-      if (i == 15) cutime = std::stol(line.substr(s_pos, len_));  // children's time spent in user code
-      if (i == 16) cstime = std::stol(line.substr(s_pos, len_));  // children's time spent in kernel code
-      if (i == 21) utime = std::stol(line.substr(s_pos, len_));   // time when process start
+      if ((i == 13) && (len_ > 0 ))
+        utime = std::stol(line.substr(s_pos, len_));  // time spent in user code
+      if ((i == 14) && (len_ > 0 ))
+        stime =
+            std::stol(line.substr(s_pos, len_));  // time spent in kernel code
+      if ((i == 15) && (len_ > 0 ))
+        cutime = std::stol(
+            line.substr(s_pos, len_));  // children's time spent in user code
+      if ((i == 16) && (len_ > 0 ))
+        cstime = std::stol(
+            line.substr(s_pos, len_));  // children's time spent in kernel code
     }
   }
   filestream.close();
@@ -183,7 +192,8 @@ vector<string> LinuxParser::CpuUtilization() {
     start_pos = end_pos + 2;
     for (int i = 0; i < 10; i++) {
       end_pos = line.find(" ", start_pos);
-      stat_vec_.push_back(line.substr(start_pos, (end_pos - start_pos)));
+      size_t len_ = (end_pos - start_pos);
+      if (len_ > 0) stat_vec_.push_back(line.substr(start_pos, len_));
       start_pos = end_pos + 1;
     }
   }
@@ -260,10 +270,13 @@ string LinuxParser::Ram(int pid) {
           std::size_t start_pos_, end_pos_;
           start_pos_ = value.find_first_not_of(" ", 0);
           end_pos_ = value.find(" ", start_pos_);
-          string ram_ =
+          size_t len_ = (end_pos_ - start_pos_);
+          if (len_ > 0) {
+            string ram_ =
               value.substr(start_pos_, (end_pos_ - start_pos_));  // unit kB
-          long ram_MB_ = std::stol(ram_) / 1000;
-          return (std::to_string(ram_MB_));
+            long ram_MB_ = std::stol(ram_) / 1000;
+            return (std::to_string(ram_MB_));
+          } 
         }
       }
     }
@@ -339,9 +352,12 @@ long LinuxParser::UpTime(int pid) {
   }
   filestream.close();
 
-  long process_start_time_ =
+  long process_up_time_ = 0;
+  if (len_ > 0) {
+    long process_start_time_ =
       std::stol(line.substr(s_pos, len_)) / sysconf(_SC_CLK_TCK);  // in sec.
-  long system_uptime_ = UpTime();                                  // in sec
-  long process_up_time_ = system_uptime_ - process_start_time_;
+    long system_uptime_ = UpTime();                                  // in sec
+    process_up_time_ = system_uptime_ - process_start_time_;
+  }
   return (process_up_time_);
 }
